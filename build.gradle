@@ -1,0 +1,87 @@
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "1.3.70"
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.3.70'
+    id 'application'
+}
+
+group 'de.florian'
+version 'v0.1.0'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    compile "org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0"
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.4'
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.3.4'
+    compile("io.reactivex.rxjava2:rxkotlin:2.4.0")
+
+    compile('com.github.FlorianDe:jextensions:master-SNAPSHOT') {
+        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    }
+    compile 'com.github.weisj:darklaf-core:[1.3.3.6,)'
+
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    compile "org.jetbrains.kotlin:kotlin-reflect"
+    compile group: 'com.microsoft.sqlserver', name: 'mssql-jdbc', version: '7.4.1.jre8'
+    compile 'org.slf4j:slf4j-api:1.7.25'
+    compile 'ch.qos.logback:logback-classic:1.2.3'
+    compile 'ch.qos.logback:logback-core:1.2.3'
+
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+compileKotlin {
+    kotlinOptions {
+        kotlinOptions.jvmTarget = "1.8"
+        freeCompilerArgs += "-Xopt-in=kotlin.RequiresOptIn"
+    }
+}
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+
+jar {
+    //REMOVE DIGITAL SIGNATURE FROM JDBC DRIVERS FOR REPACKAGED JAR
+    exclude(
+            "META-INF/*.RSA",
+            "META-INF/*.SF"
+    )
+    manifest {
+        attributes 'Main-Class': 'de.florian.rdb.datatransfer.ApplicationKt'
+    }
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+}
+
+task tag {
+    doLast {
+        createReleaseTag()
+    }
+}
+
+private void createReleaseTag() {
+    def tagName = "${version}"
+    try {
+        runCommands("git", "tag", "-d", tagName)
+    } catch (Exception e) {
+        println(e.message)
+    }
+    runCommands("git", "status")
+    runCommands("git", "tag", tagName)
+}
+
+private static String runCommands(String... commands) {
+    def process = new ProcessBuilder(commands).redirectErrorStream(true).start()
+    process.waitFor()
+    def result = ''
+    process.inputStream.eachLine { result += it + '\n' }
+    def errorResult = process.exitValue() == 0
+    if (!errorResult) {
+        throw new IllegalStateException(result)
+    }
+    return result
+}

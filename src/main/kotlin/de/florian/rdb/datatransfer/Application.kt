@@ -22,6 +22,8 @@ class Application {
             model = DMModel()
             controller = DMController(model)
             SwingUtilities.invokeLater { view = DMView(controller) }
+            controller.loadConnections()
+            //TODO MAYBE INIT SOME BEFORE STATE
         } else {
             log.error("An instance of this application is already running!")
         }

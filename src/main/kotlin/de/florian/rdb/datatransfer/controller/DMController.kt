@@ -1,9 +1,10 @@
 package de.florian.rdb.datatransfer.controller
 
+import de.florian.rdb.datatransfer.extensions.getValueOptional
+import de.florian.rdb.datatransfer.extensions.getValueOrEmpty
 import de.florian.rdb.datatransfer.model.Connection
 import de.florian.rdb.datatransfer.model.DMModel
 import de.florian.rdb.datatransfer.view.DMView
-import io.reactivex.subjects.BehaviorSubject
 import java.util.*
 
 class DMController(private var modelField: DMModel) {
@@ -19,22 +20,32 @@ class DMController(private var modelField: DMModel) {
         view = dmView
     }
 
-    private fun <T> getOptionalObservableValue(obs: BehaviorSubject<Optional<T>>): Optional<T> {
-        return synchronized(obs) {
-            val sourceValue = obs.value
-            if (sourceValue != null && sourceValue.isPresent) {
-                Optional.of(sourceValue.get())
-            } else {
-                Optional.empty()
-            }
-        }
+    fun saveConnections() {
+        this.storageService.saveConnections(this.model.connections.getValueOrEmpty())
+    }
+
+    fun loadConnections() {
+        this.model.connections.onNext(this.storageService.retrieveConnections())
+    }
+
+    fun getConnections(): Collection<Connection> {
+        return this.model.connections.getValueOrEmpty()
+    }
+
+    fun addConnection(connection: Connection = Connection.template()) {
+        this.model.connections.onNext((getConnections() + connection))
+    }
+
+    fun removeConnection(connection: Connection) {
+        this.model.connections.onNext((getConnections() - connection))
     }
 
     fun getSourceConnection(): Optional<Connection> {
-        return getOptionalObservableValue(this.model.sourceConnection)
+        return this.model.sourceConnection.getValueOptional()
     }
 
     fun getTargetConnection(): Optional<Connection> {
-        return getOptionalObservableValue(this.model.targetConnection)
+        return this.model.targetConnection.getValueOptional()
     }
+
 }

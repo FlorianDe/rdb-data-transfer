@@ -16,6 +16,9 @@ class DMModel {
 
     var selectedDatabaseType = DatabaseType.MSSQL
 
+    var connections: BehaviorSubject<Collection<Connection>> = BehaviorSubject.create()
+        private set
+
     var sourceConnection: BehaviorSubject<Optional<Connection>> = BehaviorSubject.createDefault(Optional.empty())
         private set
 
@@ -39,4 +42,28 @@ data class Connection(
 
     var name: String? = "",
     var comment: String? = ""
-)
+
+
+) {
+    companion object {
+        fun template() = Connection(
+            host = "",
+            port = 1433,
+            user = "",
+            password = "",
+            database = "",
+            jdbcUrl = "",
+            driverClassName = "",
+            name = "",
+            comment = ""
+        )
+    }
+
+    override fun toString(): String {
+        return when {
+            !this.name.isNullOrBlank() -> this.name!!
+            !this.user.isBlank() && !this.host.isBlank() -> "$user@$host"
+            else -> "Noname"
+        }
+    }
+}

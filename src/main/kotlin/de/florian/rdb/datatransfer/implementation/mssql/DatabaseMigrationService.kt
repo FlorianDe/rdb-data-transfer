@@ -97,7 +97,10 @@ class DatabaseMigrationService(databaseMigrationProperties: DatabaseMigrationPro
                     this.targetConnection.commit()
                 }
             } catch (e: SQLServerException) {
-                log.error("Rollback all changes made to the destination database due to an error while bulk copying.", e)
+                log.error(
+                    "Rollback all changes made to the destination database due to an error while bulk copying.",
+                    e
+                )
                 destinationTableRowsDiff.clear()
             } finally {
                 for (closable in listOf<AutoCloseable>(
@@ -132,7 +135,8 @@ class DatabaseMigrationService(databaseMigrationProperties: DatabaseMigrationPro
 
     private fun getSchema(stmt: Statement, schema: String, tableName: String) {
         //language=TSQL
-        val rs = stmt.executeQuery("select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA='$schema' AND TABLE_NAME='$tableName'")
+        val rs =
+            stmt.executeQuery("select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA='$schema' AND TABLE_NAME='$tableName'")
         rs.next()
         //log.debug(TableSchema.from(rs))
         rs.close()

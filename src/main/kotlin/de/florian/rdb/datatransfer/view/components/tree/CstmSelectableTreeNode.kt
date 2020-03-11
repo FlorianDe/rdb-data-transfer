@@ -1,4 +1,4 @@
-package de.florian.rdb.datatransfer.view.tree
+package de.florian.rdb.datatransfer.view.components.tree
 
 import com.github.weisj.darklaf.components.SelectableTreeNode
 

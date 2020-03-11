@@ -5,7 +5,7 @@ import com.github.weisj.darklaf.components.OverlayScrollPane
 import com.github.weisj.darklaf.components.SelectableTreeNode
 import com.github.weisj.darklaf.theme.DarculaTheme
 import de.florian.rdb.datatransfer.controller.DMController
-import de.florian.rdb.datatransfer.view.tree.CstmSelectableTreeNode
+import de.florian.rdb.datatransfer.view.components.tree.CstmSelectableTreeNode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -34,7 +34,8 @@ class DMFrame(private val controller: DMController) : JFrame() {
         //System.setProperty("sun.java2d.noddraw", "true")
         //System.setProperty("sun.java2d.d3d", "false")
         //System.setProperty("sun.java2d.opengl", "true")
-        setDefaultLookAndFeelDecorated(false)
+        //setDefaultLookAndFeelDecorated(false)
+        //LafManager.setDecorationsEnabled(false)
         LafManager.install(DarculaTheme())
         prepareGUI()
     }
@@ -91,6 +92,8 @@ class DMFrame(private val controller: DMController) : JFrame() {
         val treemodel = DefaultTreeModel(root)
         val tree = JTree(treemodel).apply {
             background = Color(70, 72, 74)
+            putClientProperty("JTree.lineStyle", "Dashed")
+            //putClientProperty("JTree.alternateRowColor", true)
         }
         tree.selectionModel.selectionMode = TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION
 

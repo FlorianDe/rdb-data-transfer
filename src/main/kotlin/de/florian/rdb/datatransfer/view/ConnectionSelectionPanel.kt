@@ -2,6 +2,7 @@ package de.florian.rdb.datatransfer.view
 
 import de.florian.rdb.datatransfer.controller.DMController
 import de.florian.rdb.datatransfer.model.Connection
+import de.florian.rdb.datatransfer.view.datasource.selection.DatasourceSelectionDialog
 import de.florian.rdb.datatransfer.view.util.UiUtil.Companion.compoundNamedBorder
 import io.reactivex.subjects.BehaviorSubject
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +33,9 @@ class ConnectionSelectionPanel(
         datasource = JLabel(NO_DATASOURCE_SELECTED_TEXT)
         selectBtn = JButton("Select connection...")
         selectBtn.addActionListener {
-            DatasourceSelectionDialog(controller) {
+            DatasourceSelectionDialog(
+                controller
+            ) {
                 this.connection.onNext(
                     Optional.of(it)
                 )
@@ -43,7 +46,7 @@ class ConnectionSelectionPanel(
 
         connection.subscribe {
             val connectionLabelTxt = when (it.isPresent) {
-                true -> "${it.get().name} selected"
+                true -> "${it.get()}"
                 else -> NO_DATASOURCE_SELECTED_TEXT
             }
 

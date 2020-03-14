@@ -63,8 +63,8 @@ class DatasourceSelectionDetailView(
         "User",
         masterView,
         selectedConnection,
-        Connection::user
-    ) { it, value -> it.user = value }
+        Connection::username
+    ) { it, value -> it.username = value }
 
     private val password = LabeledTextField(
         "Password",

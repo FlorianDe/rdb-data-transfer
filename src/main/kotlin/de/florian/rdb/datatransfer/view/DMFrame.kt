@@ -5,6 +5,8 @@ import com.github.weisj.darklaf.components.OverlayScrollPane
 import com.github.weisj.darklaf.components.SelectableTreeNode
 import com.github.weisj.darklaf.theme.DarculaTheme
 import de.florian.rdb.datatransfer.controller.DMController
+import de.florian.rdb.datatransfer.model.Schema
+import de.florian.rdb.datatransfer.model.Table
 import de.florian.rdb.datatransfer.view.components.tree.CstmSelectableTreeNode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -29,6 +31,7 @@ import kotlin.system.exitProcess
 
 class DMFrame(private val controller: DMController) : JFrame() {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val NO_DB_SELECTED_ROOT_NODE = DefaultMutableTreeNode("NO DB SELECTED")
 
     init {
         //System.setProperty("sun.java2d.noddraw", "true")
@@ -79,17 +82,28 @@ class DMFrame(private val controller: DMController) : JFrame() {
             add(targetPanel, BorderLayout.EAST)
         }
 
-        val root = DefaultMutableTreeNode("db").apply {
-            add(CstmSelectableTreeNode("schema_a", false).apply {
-                add(CstmSelectableTreeNode("table_a_a", false))
-                add(CstmSelectableTreeNode("table_a_b", false))
-                add(CstmSelectableTreeNode("table_a_c", false))
-            })
-            add(CstmSelectableTreeNode("schema_b", false).apply {
-                add(CstmSelectableTreeNode("table_b_a", false))
-            })
-        }
+        val root = NO_DB_SELECTED_ROOT_NODE
         val treemodel = DefaultTreeModel(root)
+        this.controller.model.database.subscribe{
+            if(it.isPresent){
+                val db = it.get()
+                val rootNode = DefaultMutableTreeNode(db.name)
+                for (schema in db.schemas){
+                    val schemaNode = CstmSelectableTreeNode(schema.name, false)
+                    for(table in schema.tables){
+                        val tableNode = CstmSelectableTreeNode("${table.name} [${table.records}]", false)
+                        for (column in table.columns){
+                            tableNode.add(CstmSelectableTreeNode("${column.name}  -  ${column.type}", false))
+                        }
+                        schemaNode.add(tableNode)
+                    }
+                    rootNode.add(schemaNode)
+                }
+                treemodel.setRoot(rootNode)
+            } else {
+                treemodel.setRoot(NO_DB_SELECTED_ROOT_NODE)
+            }
+        }
         val tree = JTree(treemodel).apply {
             background = Color(70, 72, 74)
             putClientProperty("JTree.lineStyle", "Dashed")
@@ -125,7 +139,7 @@ class DMFrame(private val controller: DMController) : JFrame() {
             }
             addActionListener {
                 val selectedTables =
-                    getSelectedNodes(root).joinToString(",") { "${it.label} -> ${it.userObject} : ${it.path?.contentToString()}" }
+                    getSelectedNodes(treemodel.root as DefaultMutableTreeNode).joinToString(",") { "${it.label} -> ${it.userObject} : ${it.path?.contentToString()}" }
                 val sourceOpt = controller.getSourceConnection()
                 val targetOpt = controller.getTargetConnection()
 

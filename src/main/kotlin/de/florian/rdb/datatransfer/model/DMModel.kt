@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import java.util.*
 
 data class DB(val name: String, var schemas: MutableList<Schema>)
-data class Schema(val name: String, var schemas: MutableList<Table>)
+data class Schema(val name: String, var tables: MutableList<Table>)
 data class Table(val name: String, val columns: MutableList<Column>, var records: Long)
 data class Column(val name: String, val type: String)
 
@@ -16,7 +16,7 @@ class DMModel {
 
     var selectedDatabaseType = DatabaseType.MSSQL
 
-    var connections: BehaviorSubject<Collection<Connection>> = BehaviorSubject.create()
+    var storedConnections: BehaviorSubject<Collection<Connection>> = BehaviorSubject.create()
         private set
 
     var sourceConnection: BehaviorSubject<Optional<Connection>> = BehaviorSubject.createDefault(Optional.empty())
@@ -34,7 +34,7 @@ data class Connection(
     var host: String,
     var port: Int = 0,
 
-    var user: String,
+    var username: String,
     var password: String,
     var database: String,
     var jdbcUrl: String,
@@ -42,14 +42,12 @@ data class Connection(
 
     var name: String? = "",
     var comment: String? = ""
-
-
 ) {
     companion object {
         fun template() = Connection(
             host = "",
             port = 1433,
-            user = "",
+            username = "",
             password = "",
             database = "",
             jdbcUrl = "",
@@ -62,7 +60,7 @@ data class Connection(
     override fun toString(): String {
         return when {
             !this.name.isNullOrBlank() -> this.name!!
-            !this.user.isBlank() && !this.host.isBlank() -> "$user@$host"
+            !this.username.isBlank() && !this.host.isBlank() -> "$username@$host"
             else -> "Noname"
         }
     }

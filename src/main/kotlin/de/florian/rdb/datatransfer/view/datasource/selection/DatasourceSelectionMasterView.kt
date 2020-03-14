@@ -81,7 +81,7 @@ class DatasourceSelectionMasterView(
         val removeConectionBtn = JButton("\u274C Remove").apply {
             addActionListener {
                 val index = savedConnectionsList.selectedIndex
-                if (index > 0) {
+                if (index != -1) {
                     controller.removeConnection(savedConnectionsModel[index])
                 } else {
                     log.debug("No connection for deletion selected!")
@@ -99,7 +99,7 @@ class DatasourceSelectionMasterView(
         add(connectionAddRemoveRow, BorderLayout.SOUTH)
         add(savedConnectionsListScrollPane, BorderLayout.CENTER)
 
-        controller.model.connections.subscribe {
+        controller.model.storedConnections.subscribe {
             //TODO MAYBE EVENT DRIVEN?
             savedConnectionsModel.clear()
             // Add elements one by one, since addAll is only available in > Java 11

@@ -3,7 +3,7 @@ package de.florian.rdb.datatransfer.view.datasource.selection
 import com.github.weisj.darklaf.components.OverlayScrollPane
 import de.florian.rdb.datatransfer.controller.DMController
 import de.florian.rdb.datatransfer.extensions.getValueOptional
-import de.florian.rdb.datatransfer.model.Connection
+import de.florian.rdb.datatransfer.model.DBConnectionProperties
 import de.florian.rdb.datatransfer.view.util.UiUtil
 import io.reactivex.subjects.BehaviorSubject
 import org.slf4j.LoggerFactory
@@ -15,19 +15,19 @@ import javax.swing.*
 
 class DatasourceSelectionMasterView(
     controller: DMController,
-    selectedConnection: BehaviorSubject<Optional<Connection>>
+    selectedConnectionProperties: BehaviorSubject<Optional<DBConnectionProperties>>
 ) : JPanel() {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    var savedConnectionsList: JList<Connection>
-    var savedConnectionsModel: DefaultListModel<Connection>
+    var savedConnectionsList: JList<DBConnectionProperties>
+    var savedConnectionsModel: DefaultListModel<DBConnectionProperties>
 
     init {
         layout = BorderLayout()
 
-        savedConnectionsModel = DefaultListModel<Connection>()
+        savedConnectionsModel = DefaultListModel<DBConnectionProperties>()
         savedConnectionsList = JList(savedConnectionsModel).apply {
-            background = Color(70, 72, 74)
+            background = Color(62, 67, 76)
             border = UiUtil.emptyBorder(2)
             selectionMode = ListSelectionModel.SINGLE_SELECTION
         }
@@ -36,11 +36,11 @@ class DatasourceSelectionMasterView(
             if (!e.valueIsAdjusting) {
                 val lsm = e.source as JList<*>
                 if (lsm.isSelectionEmpty) {
-                    selectedConnection.onNext(Optional.empty())
+                    selectedConnectionProperties.onNext(Optional.empty())
                 } else {
                     synchronized(savedConnectionsList) {
                         val connection = savedConnectionsModel.get(savedConnectionsList.selectedIndex)
-                        selectedConnection.onNext(Optional.of(connection))
+                        selectedConnectionProperties.onNext(Optional.of(connection))
                     }
                 }
             }
@@ -70,12 +70,12 @@ class DatasourceSelectionMasterView(
         }
         val copyConectionBtn = JButton("⎘ Copy").apply {
             addActionListener {
-                selectedConnection.getValueOptional().ifPresent {
-                    controller.addConnection(it.copy(name = "${it.name}-copy"))
+                selectedConnectionProperties.getValueOptional().ifPresent {
+                    controller.addConnection(it.copy(name = "$it-copy"))
                 }
             }
-            selectedConnection.subscribe {
-                this.isEnabled = selectedConnection.getValueOptional().isPresent
+            selectedConnectionProperties.subscribe {
+                this.isEnabled = selectedConnectionProperties.getValueOptional().isPresent
             }
         }
         val removeConectionBtn = JButton("\u274C Remove").apply {
@@ -104,7 +104,7 @@ class DatasourceSelectionMasterView(
             savedConnectionsModel.clear()
             // Add elements one by one, since addAll is only available in > Java 11
             it?.let { cons -> cons.forEach { con -> savedConnectionsModel.addElement(con) } }
-            selectedConnection.onNext(Optional.empty())
+            selectedConnectionProperties.onNext(Optional.empty())
         }
     }
 }

@@ -4,9 +4,12 @@ import de.florian.rdb.datatransfer.extensions.getValueOptional
 import de.florian.rdb.datatransfer.extensions.getValueOrEmpty
 import de.florian.rdb.datatransfer.implementation.DatabaseQueryExecutor
 import de.florian.rdb.datatransfer.implementation.mssql.DatabaseQueryExecutorMSQL
-import de.florian.rdb.datatransfer.model.Connection
+import de.florian.rdb.datatransfer.model.DB
+import de.florian.rdb.datatransfer.model.DBConnectionProperties
 import de.florian.rdb.datatransfer.model.DMModel
 import de.florian.rdb.datatransfer.view.DMView
+import io.reactivex.rxkotlin.Observables
+import io.reactivex.subjects.BehaviorSubject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import java.sql.DriverManager
@@ -25,19 +28,33 @@ class DMController(private var modelField: DMModel) {
         private set
 
     init {
-        this.model.sourceConnection.subscribe{
-            refreshSourceDatabaseInformation()
+        this.model.sourceConnectionProperties.subscribe{
+            it.ifPresent{updateDatabaseInformation(it, model.sourceDatabase)}
+        }
+        this.model.targetConnectionProperties.subscribe{
+            it.ifPresent{updateDatabaseInformation(it, model.targetDatabase)}
+        }
+        Observables.combineLatest(model.sourceDatabase, model.targetDatabase).subscribe {
+            if(it.first.isPresent && it.second.isPresent){
+                println("transferable")
+            }
         }
     }
 
     //TODO SHOW LOADING INDICATOR AND DONT RUN BLOCKING
-    fun refreshSourceDatabaseInformation(){
-        if(Objects.nonNull(databaseQueryExecutor)){
-            this.model.sourceConnection.getValueOptional().ifPresent{
-                runBlocking {
-                    val res = async {databaseQueryExecutor!!.getDatabaseInformation(DriverManager.getConnection(it.jdbcUrl, it.username, it.password))}
-                    model.database.onNext(Optional.of(res.await()))
+    fun updateDatabaseInformation(connectionProperties: DBConnectionProperties, dbModel: BehaviorSubject<Optional<DB>>) {
+        if (Objects.nonNull(databaseQueryExecutor)) {
+            runBlocking {
+                val res = async {
+                    databaseQueryExecutor!!.getDatabaseInformation(
+                        DriverManager.getConnection(
+                            connectionProperties.jdbcUrl,
+                            connectionProperties.username,
+                            connectionProperties.password
+                        )
+                    )
                 }
+                dbModel.onNext(Optional.of(res.await()))
             }
         }
     }
@@ -54,23 +71,23 @@ class DMController(private var modelField: DMModel) {
         this.model.storedConnections.onNext(this.storageService.retrieveConnections())
     }
 
-    fun getConnections(): Collection<Connection> {
+    fun getConnections(): Collection<DBConnectionProperties> {
         return this.model.storedConnections.getValueOrEmpty()
     }
 
-    fun addConnection(connection: Connection = Connection.template()) {
-        this.model.storedConnections.onNext((getConnections() + connection))
+    fun addConnection(connectionProperties: DBConnectionProperties = DBConnectionProperties.template()) {
+        this.model.storedConnections.onNext((getConnections() + connectionProperties))
     }
 
-    fun removeConnection(connection: Connection) {
-        this.model.storedConnections.onNext((getConnections() - connection))
+    fun removeConnection(connectionProperties: DBConnectionProperties) {
+        this.model.storedConnections.onNext((getConnections() - connectionProperties))
     }
 
-    fun getSourceConnection(): Optional<Connection> {
-        return this.model.sourceConnection.getValueOptional()
+    fun getSourceConnection(): Optional<DBConnectionProperties> {
+        return this.model.sourceConnectionProperties.getValueOptional()
     }
 
-    fun getTargetConnection(): Optional<Connection> {
-        return this.model.targetConnection.getValueOptional()
+    fun getTargetConnection(): Optional<DBConnectionProperties> {
+        return this.model.targetConnectionProperties.getValueOptional()
     }
 }

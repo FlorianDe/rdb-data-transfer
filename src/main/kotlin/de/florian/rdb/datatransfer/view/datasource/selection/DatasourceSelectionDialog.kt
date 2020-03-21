@@ -1,7 +1,7 @@
 package de.florian.rdb.datatransfer.view.datasource.selection
 
 import de.florian.rdb.datatransfer.controller.DMController
-import de.florian.rdb.datatransfer.model.Connection
+import de.florian.rdb.datatransfer.model.DBConnectionProperties
 import io.reactivex.subjects.BehaviorSubject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -15,7 +15,7 @@ import java.util.*
 import javax.swing.*
 
 
-class DatasourceSelectionDialog(private val controller: DMController, connectionSelected: (Connection) -> Unit) :
+class DatasourceSelectionDialog(private val controller: DMController, connectionSelected: (DBConnectionProperties) -> Unit) :
     JDialog() {
     companion object {
         const val NO_CONNECTION_SELECTED_VIEW_NAME = "NO_CONNECTION_SELECTED_VIEW_NAME"
@@ -23,7 +23,7 @@ class DatasourceSelectionDialog(private val controller: DMController, connection
     }
 
     private var connectionDetailsPanel: JPanel
-    private var selectedConnection: BehaviorSubject<Optional<Connection>> = BehaviorSubject.create()
+    private var selectedConnectionProperties: BehaviorSubject<Optional<DBConnectionProperties>> = BehaviorSubject.create()
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -37,13 +37,13 @@ class DatasourceSelectionDialog(private val controller: DMController, connection
             layout = BorderLayout()
         }
 
-        val connectionsMasterView = DatasourceSelectionMasterView(controller, selectedConnection)
+        val connectionsMasterView = DatasourceSelectionMasterView(controller, selectedConnectionProperties)
 
         val connectionDetailsView: JComponent =
             DatasourceSelectionDetailView(
                 controller,
                 connectionsMasterView,
-                selectedConnection
+                selectedConnectionProperties
             )
 
         val noConnectionSelectedPanel = JPanel().apply {
@@ -90,7 +90,7 @@ class DatasourceSelectionDialog(private val controller: DMController, connection
         val splitPane = JSplitPane(JSplitPane.HORIZONTAL_SPLIT, connectionsMasterView, content)
         add(splitPane)
 
-        selectedConnection.subscribe {
+        selectedConnectionProperties.subscribe {
             log.debug("Connection $it selected for edit.")
             showConnectionForm(it.isPresent)
         }

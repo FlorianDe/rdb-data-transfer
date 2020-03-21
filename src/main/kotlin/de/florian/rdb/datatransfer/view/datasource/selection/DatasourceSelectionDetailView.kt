@@ -2,7 +2,7 @@ package de.florian.rdb.datatransfer.view.datasource.selection
 
 import de.florian.rdb.datatransfer.controller.DMController
 import de.florian.rdb.datatransfer.extensions.getValueOptional
-import de.florian.rdb.datatransfer.model.Connection
+import de.florian.rdb.datatransfer.model.DBConnectionProperties
 import de.florian.rdb.datatransfer.view.components.textfield.IntOnlyDocumentFilter
 import de.florian.rdb.datatransfer.view.util.UiUtil
 import de.florian.rdb.datatransfer.view.util.UiUtil.Companion.compoundNamedBorder
@@ -24,36 +24,36 @@ import kotlin.reflect.KMutableProperty1
 class DatasourceSelectionDetailView(
     controller: DMController,
     masterView: JComponent,
-    selectedConnection: BehaviorSubject<Optional<Connection>>
+    selectedConnectionProperties: BehaviorSubject<Optional<DBConnectionProperties>>
 ) : JPanel() {
     private val log = LoggerFactory.getLogger(javaClass)
 
     private val name = LabeledTextField(
         "Name",
         masterView,
-        selectedConnection,
-        Connection::name
+        selectedConnectionProperties,
+        DBConnectionProperties::name
     ) { it, value -> it.name = value }
 
     private val comment = LabeledTextField(
         "Comment",
         masterView,
-        selectedConnection,
-        Connection::comment
+        selectedConnectionProperties,
+        DBConnectionProperties::comment
     ) { it, value -> it.comment = value }
 
     private val host = LabeledTextField(
         "Host",
         masterView,
-        selectedConnection,
-        Connection::host
+        selectedConnectionProperties,
+        DBConnectionProperties::host
     ) { it, value -> it.host = value }
 
     private val port = LabeledTextField(
         "Port",
         masterView,
-        selectedConnection,
-        Connection::port,
+        selectedConnectionProperties,
+        DBConnectionProperties::port,
         JTextField().apply {
             (this.document as PlainDocument).documentFilter = IntOnlyDocumentFilter()
         }
@@ -62,31 +62,31 @@ class DatasourceSelectionDetailView(
     private val user = LabeledTextField(
         "User",
         masterView,
-        selectedConnection,
-        Connection::username
+        selectedConnectionProperties,
+        DBConnectionProperties::username
     ) { it, value -> it.username = value }
 
     private val password = LabeledTextField(
         "Password",
         masterView,
-        selectedConnection,
-        Connection::password,
+        selectedConnectionProperties,
+        DBConnectionProperties::password,
         JPasswordField().apply { putClientProperty("JPasswordField.showViewIcon", true) }
     ) { it, value -> it.password = value }
 
     private val database = LabeledTextField(
         "Database",
         masterView,
-        selectedConnection,
-        Connection::database
+        selectedConnectionProperties,
+        DBConnectionProperties::database
     ) { it, value -> it.database = value }
 
     //private val schema = LabeledTextField("Schema", masterView, selectedConnection) //{ it, value -> it. = value }
     private val url = LabeledTextField(
         "Url",
         masterView,
-        selectedConnection,
-        Connection::jdbcUrl
+        selectedConnectionProperties,
+        DBConnectionProperties::jdbcUrl
     ) { it, value -> it.jdbcUrl = value }
 
     init {
@@ -114,10 +114,10 @@ class DatasourceSelectionDetailView(
             container.add(elem.first.input, UiUtil.createGbc(y, 1 + 2 * x))
         }
 
-        selectedConnection.subscribe {
+        selectedConnectionProperties.subscribe {
             it.ifPresent { con ->
                 for (elem in inputs) {
-                    elem.first.input.text = elem.first.connectionProperty.get(con).toString()
+                    elem.first.input.text = elem.first.connectionPropertiesProperty.get(con).toString()
                 }
             }
         }
@@ -129,10 +129,10 @@ class DatasourceSelectionDetailView(
 class LabeledTextField(
     label: String,
     masterView: JComponent,
-    selectedConnection: BehaviorSubject<Optional<Connection>>,
-    val connectionProperty: KMutableProperty1<Connection, *>,
+    selectedConnectionProperties: BehaviorSubject<Optional<DBConnectionProperties>>,
+    val connectionPropertiesProperty: KMutableProperty1<DBConnectionProperties, *>,
     valueField: JTextField = JTextField(),
-    valueChanged: (Connection, String) -> Unit
+    valueChanged: (DBConnectionProperties, String) -> Unit
 ) : JPanel() {
     val label = JLabel("$label:")
     val input = valueField
@@ -143,7 +143,7 @@ class LabeledTextField(
         add(this.input)
 
         fun updateValue() {
-            selectedConnection.getValueOptional().ifPresent {
+            selectedConnectionProperties.getValueOptional().ifPresent {
                 GlobalScope.launch(Dispatchers.Main) {
                     valueChanged(it, input.text)
                     masterView.repaint()

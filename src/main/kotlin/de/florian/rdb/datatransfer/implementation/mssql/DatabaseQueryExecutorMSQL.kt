@@ -25,7 +25,7 @@ class DatabaseQueryExecutorMSQL : DatabaseQueryExecutor() {
         val rs = stmt.executeQuery(
             """
             SELECT A.TABLE_CATALOG, A.TABLE_SCHEMA, A.TABLE_NAME, A.COLUMN_NAME, A.DATA_TYPE, B.TOTAL_ROW_COUNT
-            FROM (SELECT * FROM $dbName.INFORMATION_SCHEMA.COLUMNS) A,
+            FROM (SELECT * FROM [$dbName].INFORMATION_SCHEMA.COLUMNS) A,
                  (SELECT SCHEMA_NAME(schema_id)   AS TABLE_SCHEMA,
                          [Tables].name            AS TABLE_NAME,
                          SUM([Partitions].[rows]) AS [TOTAL_ROW_COUNT]

@@ -28,10 +28,5 @@ class DatabaseMigrationProperties {
          * Login password of the database.
          */
         lateinit var password: String
-
-        /**
-         * Schema of the database which should be used.
-         */
-        lateinit var schema: String
     }
 }

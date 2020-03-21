@@ -16,35 +16,39 @@ class DMModel {
 
     var selectedDatabaseType = DatabaseType.MSSQL
 
-    var storedConnections: BehaviorSubject<Collection<Connection>> = BehaviorSubject.create()
+    var storedConnections: BehaviorSubject<Collection<DBConnectionProperties>> = BehaviorSubject.create()
         private set
 
-    var sourceConnection: BehaviorSubject<Optional<Connection>> = BehaviorSubject.createDefault(Optional.empty())
+    var sourceConnectionProperties: BehaviorSubject<Optional<DBConnectionProperties>> = BehaviorSubject.createDefault(Optional.empty())
+        private set
+    var sourceDatabase: BehaviorSubject<Optional<DB>> = BehaviorSubject.createDefault(Optional.empty())
         private set
 
-    var targetConnection: BehaviorSubject<Optional<Connection>> = BehaviorSubject.createDefault(Optional.empty())
+    var targetConnectionProperties: BehaviorSubject<Optional<DBConnectionProperties>> = BehaviorSubject.createDefault(Optional.empty())
         private set
-
-    var database: BehaviorSubject<Optional<DB>> = BehaviorSubject.createDefault(Optional.empty())
+    var targetDatabase: BehaviorSubject<Optional<DB>> = BehaviorSubject.createDefault(Optional.empty())
         private set
 }
 
 @Serializable
-data class Connection(
+data class DBConnectionProperties(
     var host: String,
     var port: Int = 0,
-
+    /** Login username of the database. */
     var username: String,
+    /** Login password of the database. */
     var password: String,
     var database: String,
+    /** JDBC URL of the database. */
     var jdbcUrl: String,
+    /** Fully qualified name of the JDBC driver. Auto-detected based on the URL by default. */
     var driverClassName: String,
 
     var name: String? = "",
     var comment: String? = ""
 ) {
     companion object {
-        fun template() = Connection(
+        fun template() = DBConnectionProperties(
             host = "",
             port = 1433,
             username = "",
@@ -65,3 +69,9 @@ data class Connection(
         }
     }
 }
+
+data class DataTransferTableModel(
+    val db: String,
+    val schema: String,
+    val table: String
+)

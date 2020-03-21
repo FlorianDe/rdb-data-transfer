@@ -1,7 +1,7 @@
 package de.florian.rdb.datatransfer.view
 
 import de.florian.rdb.datatransfer.controller.DMController
-import de.florian.rdb.datatransfer.model.Connection
+import de.florian.rdb.datatransfer.model.DBConnectionProperties
 import de.florian.rdb.datatransfer.view.datasource.selection.DatasourceSelectionDialog
 import de.florian.rdb.datatransfer.view.util.UiUtil.Companion.compoundNamedBorder
 import io.reactivex.subjects.BehaviorSubject
@@ -17,7 +17,7 @@ import javax.swing.JPanel
 class ConnectionSelectionPanel(
     private val controller: DMController,
     groupName: String,
-    private val connection: BehaviorSubject<Optional<Connection>>
+    private val connectionProperties: BehaviorSubject<Optional<DBConnectionProperties>>
 ) : JPanel() {
     companion object {
         private const val NO_DATASOURCE_SELECTED_TEXT = "Choose a database"
@@ -36,7 +36,7 @@ class ConnectionSelectionPanel(
             DatasourceSelectionDialog(
                 controller
             ) {
-                this.connection.onNext(
+                this.connectionProperties.onNext(
                     Optional.of(it)
                 )
             }
@@ -44,7 +44,7 @@ class ConnectionSelectionPanel(
         add(datasource)
         add(selectBtn)
 
-        connection.subscribe {
+        connectionProperties.subscribe {
             val connectionLabelTxt = when (it.isPresent) {
                 true -> "${it.get()}"
                 else -> NO_DATASOURCE_SELECTED_TEXT

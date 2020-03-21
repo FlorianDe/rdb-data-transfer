@@ -3,41 +3,37 @@ package de.florian.rdb.datatransfer.implementation.mssql
 import com.microsoft.sqlserver.jdbc.SQLServerBulkCopy
 import com.microsoft.sqlserver.jdbc.SQLServerBulkCopyOptions
 import com.microsoft.sqlserver.jdbc.SQLServerException
+import de.florian.rdb.datatransfer.model.DBConnectionProperties
+import de.florian.rdb.datatransfer.model.DataTransferTableModel
 import org.slf4j.LoggerFactory
 import java.sql.*
 
-class DatabaseMigrationService(databaseMigrationProperties: DatabaseMigrationProperties) {
+class DatabaseMigrationService(
+    private val sourceConnectionProperties: DBConnectionProperties,
+    private val targetConnectionProperties: DBConnectionProperties,
+    private val dbObjectTransferList: List<DataTransferTableModel>
+) {
     private val log = LoggerFactory.getLogger(javaClass)
     var sourceConnection: Connection
-    var sourceSchema: String? = null
     var targetConnection: Connection
-    var targetSchema: String? = null
-    var tables: List<String> = emptyList()
+
     var batchSize: Int = 5_000
     var tableCopyTimeout = 30 * 60
     var safeMode = false
 
     init {
-        databaseMigrationProperties.let { props ->
-            props.source.let {
-                this.sourceConnection = DriverManager.getConnection(it.url, it.username, it.password)
-                this.sourceSchema = it.schema
-            }
-
-            props.target.let {
-                this.targetConnection = DriverManager.getConnection(it.url, it.username, it.password)
-                this.targetSchema = it.schema
-            }
-
-            this.tables = props.tables
-            this.batchSize = props.batchSize
+        sourceConnectionProperties.let {
+            this.sourceConnection = DriverManager.getConnection(it.jdbcUrl, it.username, it.password)
+        }
+        targetConnectionProperties.let {
+            this.targetConnection = DriverManager.getConnection(it.jdbcUrl, it.username, it.password)
         }
     }
 
     fun migrate(): Map<String, Long> {
         val destinationTableRowsDiff: HashMap<String, Long> = HashMap()
 
-        if (tables.isEmpty()) {
+        if (dbObjectTransferList.isEmpty()) {
             log.debug("No tables defined. Won't copy anything!")
             return destinationTableRowsDiff
         }
@@ -47,16 +43,19 @@ class DatabaseMigrationService(databaseMigrationProperties: DatabaseMigrationPro
             val stmtDestination: Statement = this.targetConnection.createStatement()
             lateinit var bulkCopy: SQLServerBulkCopy
 
-            tables.forEach { setConstraintCheck(stmtDestination, it, false) }
+            dbObjectTransferList.forEach {
+                setConstraintCheck(stmtDestination, it.table, false)
+            }
             try {
                 this.targetConnection.autoCommit = false
-                for (table in tables) {
+                for (dbObject in dbObjectTransferList) {
                     val start = System.currentTimeMillis()
-                    val fullSourceTableName = if (sourceSchema.isNullOrEmpty()) table else "$sourceSchema.$table"
-                    val fullDestinationTableName = if (targetSchema.isNullOrEmpty()) table else "$targetSchema.$table"
+                    //TODO REFACTOR HERE IF WE WANT TO ALLOW TRANSFER BETWEEN DIFFERENT SCHEMAS
+                    val fullSourceTableName = if (dbObject.schema.isEmpty()) dbObject.table else "${dbObject.schema}.${dbObject.table}"
+                    val fullDestinationTableName = if (dbObject.schema.isEmpty()) dbObject.table  else "${dbObject.schema}.${dbObject.table}"
 
-                    getSchema(stmtSource, sourceSchema ?: "", table)
-                    getSchema(stmtDestination, targetSchema ?: "", table)
+                    getSchema(stmtSource, dbObject)
+                    getSchema(stmtDestination, dbObject)
 
                     val countDestTableBefore = getRowCount(stmtDestination, fullDestinationTableName)
 
@@ -82,7 +81,7 @@ class DatabaseMigrationService(databaseMigrationProperties: DatabaseMigrationPro
                     bulkCopy.writeToServer(rsSourceData)
 
                     val countDestTableAfter = getRowCount(stmtDestination, fullDestinationTableName)
-                    destinationTableRowsDiff[table] = (countDestTableAfter - countDestTableBefore).toLong()
+                    destinationTableRowsDiff[dbObject.table] = (countDestTableAfter - countDestTableBefore).toLong()
 
                     if (!safeMode) {
                         this.targetConnection.commit()
@@ -90,7 +89,9 @@ class DatabaseMigrationService(databaseMigrationProperties: DatabaseMigrationPro
 
                     log.debug("Took ${(System.currentTimeMillis() - start)} ms.\n")
                 }
-                tables.forEach { setConstraintCheck(stmtDestination, it, true) }
+                dbObjectTransferList.forEach {
+                    setConstraintCheck(stmtDestination, it.table, true)
+                }
                 if (safeMode) {
                     // Only commit all changes if no exception was thrown during any bulk copy operation!
                     // This insures a valid db state at all times.
@@ -133,10 +134,9 @@ class DatabaseMigrationService(databaseMigrationProperties: DatabaseMigrationPro
         return count
     }
 
-    private fun getSchema(stmt: Statement, schema: String, tableName: String) {
+    private fun getSchema(stmt: Statement, dbObject: DataTransferTableModel) {
         //language=TSQL
-        val rs =
-            stmt.executeQuery("select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA='$schema' AND TABLE_NAME='$tableName'")
+        val rs = stmt.executeQuery("SELECT * FROM INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA='${dbObject.schema}' AND TABLE_NAME='${dbObject.table}'")
         rs.next()
         //log.debug(TableSchema.from(rs))
         rs.close()

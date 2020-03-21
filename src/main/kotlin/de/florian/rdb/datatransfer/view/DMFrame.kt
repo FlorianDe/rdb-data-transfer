@@ -1,19 +1,15 @@
 package de.florian.rdb.datatransfer.view
 
 import com.github.weisj.darklaf.LafManager
-import com.github.weisj.darklaf.components.OverlayScrollPane
-import com.github.weisj.darklaf.components.SelectableTreeNode
 import com.github.weisj.darklaf.theme.DarculaTheme
 import de.florian.rdb.datatransfer.controller.DMController
-import de.florian.rdb.datatransfer.model.Schema
-import de.florian.rdb.datatransfer.model.Table
-import de.florian.rdb.datatransfer.view.components.tree.CstmSelectableTreeNode
+import de.florian.rdb.datatransfer.implementation.mssql.DatabaseMigrationService
+import de.florian.rdb.datatransfer.view.transfer.TablesInformationTreePanel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
-import java.awt.Color
 import java.awt.Dimension
 import java.awt.Image
 import java.awt.event.WindowAdapter
@@ -21,24 +17,23 @@ import java.awt.event.WindowEvent
 import java.io.IOException
 import java.util.*
 import javax.imageio.ImageIO
-import javax.swing.*
-import javax.swing.tree.DefaultMutableTreeNode
-import javax.swing.tree.DefaultTreeModel
-import javax.swing.tree.TreeNode
-import javax.swing.tree.TreeSelectionModel
+import javax.swing.JButton
+import javax.swing.JFrame
+import javax.swing.JOptionPane
+import javax.swing.JPanel
 import kotlin.system.exitProcess
+import kotlin.system.measureTimeMillis
 
 
 class DMFrame(private val controller: DMController) : JFrame() {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val NO_DB_SELECTED_ROOT_NODE = DefaultMutableTreeNode("NO DB SELECTED")
 
     init {
         //System.setProperty("sun.java2d.noddraw", "true")
         //System.setProperty("sun.java2d.d3d", "false")
         //System.setProperty("sun.java2d.opengl", "true")
         //setDefaultLookAndFeelDecorated(false)
-        //LafManager.setDecorationsEnabled(false)
+        LafManager.setDecorationsEnabled(false)
         LafManager.install(DarculaTheme())
         prepareGUI()
     }
@@ -70,82 +65,35 @@ class DMFrame(private val controller: DMController) : JFrame() {
             val sourcePanel = ConnectionSelectionPanel(
                 controller,
                 "Source",
-                controller.model.sourceConnection
+                controller.model.sourceConnectionProperties
             )
             val targetPanel = ConnectionSelectionPanel(
                 controller,
                 "Target",
-                controller.model.targetConnection
+                controller.model.targetConnectionProperties
             )
 
             add(sourcePanel, BorderLayout.WEST)
             add(targetPanel, BorderLayout.EAST)
         }
 
-        val root = NO_DB_SELECTED_ROOT_NODE
-        val treemodel = DefaultTreeModel(root)
-        this.controller.model.database.subscribe{
-            if(it.isPresent){
-                val db = it.get()
-                val rootNode = DefaultMutableTreeNode(db.name)
-                for (schema in db.schemas){
-                    val schemaNode = CstmSelectableTreeNode(schema.name, false)
-                    for(table in schema.tables){
-                        val tableNode = CstmSelectableTreeNode("${table.name} [${table.records}]", false)
-                        for (column in table.columns){
-                            tableNode.add(CstmSelectableTreeNode("${column.name}  -  ${column.type}", false))
-                        }
-                        schemaNode.add(tableNode)
-                    }
-                    rootNode.add(schemaNode)
-                }
-                treemodel.setRoot(rootNode)
-            } else {
-                treemodel.setRoot(NO_DB_SELECTED_ROOT_NODE)
-            }
-        }
-        val tree = JTree(treemodel).apply {
-            background = Color(70, 72, 74)
-            putClientProperty("JTree.lineStyle", "Dashed")
-            //putClientProperty("JTree.alternateRowColor", true)
-        }
-        tree.selectionModel.selectionMode = TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION
-
-        tree.addTreeSelectionListener {
-            val path = it.newLeadSelectionPath
-            if (path != null) {
-                log.debug(path.lastPathComponent.toString())
-                val selected = path.lastPathComponent
-                if (selected is SelectableTreeNode) {
-                    val oldSelectionValue = selected.userObject as Boolean
-                    selected.userObject = !oldSelectionValue
-                    setSelectionChildrenRecursive(selected, !oldSelectionValue)
-                    setSelectionParentRecursive(selected, !oldSelectionValue)
-                }
-                tree.clearSelection()
-            }
-        }
-
-        val tablesTreeScrollPane = OverlayScrollPane(tree)
-        val centerPanel = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.PAGE_AXIS)
-            add(tablesTreeScrollPane)
-        }
+        val sourceTablesInformationPanel = TablesInformationTreePanel(controller, controller.model.sourceDatabase)
+        //val targetTablesInformationPanel = TablesInformationTreePanel(controller, controller.model.targetDatabase)
 
         val transferBtn = JButton("Transfer").apply {
             fun validTransfer(): Boolean {
-                return controller.model.sourceConnection.value?.isPresent == true &&
-                        controller.model.targetConnection.value?.isPresent == true
+                return controller.model.sourceConnectionProperties.value?.isPresent == true &&
+                        controller.model.targetConnectionProperties.value?.isPresent == true
             }
             addActionListener {
-                val selectedTables =
-                    getSelectedNodes(treemodel.root as DefaultMutableTreeNode).joinToString(",") { "${it.label} -> ${it.userObject} : ${it.path?.contentToString()}" }
+                val selectedTables = sourceTablesInformationPanel.getIncludedTables()
+                val selectedTablesString = selectedTables.joinToString(",\n") { "[${it.db}].[${it.schema}].${it.table}" }
                 val sourceOpt = controller.getSourceConnection()
                 val targetOpt = controller.getTargetConnection()
 
                 log.debug(
                     """
-                    selectedTables=$selectedTables
+                    selectedTables=$selectedTablesString
                     source=$sourceOpt
                     target=$targetOpt
                 """.trimMargin()
@@ -156,7 +104,7 @@ class DMFrame(private val controller: DMController) : JFrame() {
                     val target = targetOpt.get().copy()
                     val message = """
                         Do you really want to transfer tables:
-                        $selectedTables
+                        $selectedTablesString
                         from: $source
                         to: $target
                     """.trimIndent()
@@ -167,16 +115,23 @@ class DMFrame(private val controller: DMController) : JFrame() {
                     )
 
                     if (result == JOptionPane.YES_OPTION) {
-                        // TODO START BUSINESS LOGIC + PROCESS
-                        log.debug("TRANSFER CONFIRMED")
+                        val totalTime = measureTimeMillis {
+                            val migration = DatabaseMigrationService(
+                                sourceConnectionProperties = source,
+                                targetConnectionProperties = target,
+                                dbObjectTransferList = selectedTables
+                            ).migrate()
+                            log.debug("Migrated:\n$migration")
+                        }
+                        log.debug("Total transfer took $totalTime ms.")
                     }
                 }
             }
 
             isEnabled = validTransfer()
 
-            controller.model.sourceConnection
-                .mergeWith(controller.model.targetConnection)
+            controller.model.sourceConnectionProperties
+                .mergeWith(controller.model.targetConnectionProperties)
                 .subscribe {
                     val enable = validTransfer()
                     GlobalScope.launch(Dispatchers.Main) {
@@ -198,40 +153,12 @@ class DMFrame(private val controller: DMController) : JFrame() {
         })
         add(headerPanel, BorderLayout.NORTH)
         add(bottomPanel, BorderLayout.SOUTH)
-        add(centerPanel, BorderLayout.CENTER)
+        add(sourceTablesInformationPanel, BorderLayout.CENTER)
+        //add(targetTablesInformationPanel, BorderLayout.EAST)
 
-        setLocationRelativeTo(null)
         pack()
+        isLocationByPlatform = true
         isVisible = true
-    }
-
-    private fun getSelectedNodes(parent: DefaultMutableTreeNode): List<SelectableTreeNode> {
-        return parent.depthFirstEnumeration()
-            .asSequence()
-            .mapNotNull { if (it is SelectableTreeNode) it else null }
-            .filter { it.childCount == 0 }
-            .filter { it.userObject == true }
-            .toList()
-    }
-
-    private fun setSelectionParentRecursive(selected: TreeNode, value: Boolean) {
-        val parentNode = selected.parent
-        if (parentNode != null && parentNode is SelectableTreeNode) {
-            val parentValue = parentNode.children().asSequence().all {
-                it is SelectableTreeNode && it.userObject as Boolean
-            }
-            parentNode.userObject = parentValue
-            setSelectionParentRecursive(parentNode, !value)
-        }
-    }
-
-    private fun setSelectionChildrenRecursive(node: TreeNode, value: Boolean) {
-        for (child in node.children()) {
-            if (child is SelectableTreeNode) {
-                child.userObject = value
-                setSelectionChildrenRecursive(child, value)
-            }
-        }
     }
 
     override fun getPreferredSize(): Dimension {
